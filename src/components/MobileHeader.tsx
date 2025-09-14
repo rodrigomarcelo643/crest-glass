@@ -32,10 +32,11 @@ const MobileHeader = () => {
         </div>
         
         <div className="flex items-center space-x-2">
+          <Link to="/contact">
           <Button variant="ghost" size="sm" className="glass-button">
-            <Phone className="w-4 h-4" />
+              <Phone className="w-4 h-4" />
           </Button>
-          
+          </Link>        
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="sm" className="glass-button">
