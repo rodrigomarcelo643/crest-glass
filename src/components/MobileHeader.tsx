@@ -9,9 +9,10 @@ const MobileHeader = () => {
   
   const navigation = [
     { name: "Home", href: "/" },
+    {name : "About" , href: "/about"},
     { name: "Products", href: "/products" },
     { name: "Services", href: "/services" },
-    { name: "About", href: "/about" },
+    {name: "Contact" , href: "/contact"},
     { name: "Quote", href: "/quote" },
   ];
 

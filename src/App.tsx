@@ -10,6 +10,7 @@ import Products from "./pages/Products";
 import Services from "./pages/Services";
 import About from "./pages/About";
 import Quote from "./pages/Quote";
+import ContactUs from "./pages/ContactUs";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/admin/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="products" element={<Products />} />
+            <Route path="contact" element ={<ContactUs/> }/> 
             <Route path="services" element={<Services />} />
             <Route path="about" element={<About />} />
             <Route path="quote" element={<Quote />} />
