@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Settings as SettingsIcon, User, Shield, Upload, Plus, Trash2, Building, Eye, EyeOff } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
 
 interface AdminUser {
   id: string;
@@ -49,10 +51,12 @@ const Settings = () => {
     role: "admin" as "admin" | "super_admin",
   });
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (profileData.newPassword !== profileData.confirmPassword) {
+
+    const { currentPassword, newPassword, confirmPassword } = profileData;
+
+    if (newPassword !== confirmPassword) {
       toast({
         title: "Error",
         description: "New passwords do not match",
@@ -61,7 +65,7 @@ const Settings = () => {
       return;
     }
 
-    if (profileData.newPassword.length < 6) {
+    if (newPassword.length < 6) {
       toast({
         title: "Error", 
         description: "Password must be at least 6 characters long",
@@ -70,12 +74,74 @@ const Settings = () => {
       return;
     }
 
-    toast({
-      title: "Password Updated",
-      description: "Your password has been changed successfully",
-    });
-    
-    setProfileData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    try {
+      // Step 1: Get the logged-in admin's ID
+      const adminId = localStorage.getItem("adminToken");
+      if (!adminId) {
+        toast({
+          title: "Error",
+          description: "You are not logged in.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Step 2: Fetch admin from your `admin_users` table
+      const { data: admin, error } = await supabase
+        .from("admin_users")
+        .select("*")
+        .eq("id", adminId)
+        .single();
+
+      if (error || !admin) {
+        toast({
+          title: "Error",
+          description: "Admin account not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Step 3: Compare currentPassword (plain) to stored password_hash
+      if (admin.password_hash !== currentPassword) {
+        // NOTE: Replace with bcrypt.compare in production
+        toast({
+          title: "Error",
+          description: "Current password is incorrect",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Step 4: Update password (should hash in production)
+      const { error: updateError } = await supabase
+        .from("admin_users")
+        .update({ password_hash: newPassword })
+        .eq("id", adminId);
+
+      if (updateError) {
+        toast({
+          title: "Error",
+          description: "Failed to update password",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Password Updated",
+        description: "Your password has been changed successfully",
+      });
+
+      setProfileData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+
+    } catch (err) {
+      toast({
+        title: "Unexpected Error",
+        description: "Please try again later",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleBusinessInfoUpdate = (e: React.FormEvent) => {
@@ -220,208 +286,6 @@ const Settings = () => {
             
             <Button type="submit">Change Password</Button>
           </form>
-        </CardContent>
-      </Card>
-
-      {/* Business Information */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building className="w-5 h-5" />
-            Business Information
-          </CardTitle>
-          <CardDescription>
-            Update your business details and branding
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleBusinessInfoUpdate} className="space-y-4 max-w-2xl">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="businessName">Business Name</Label>
-                <Input
-                  id="businessName"
-                  value={businessInfo.businessName}
-                  onChange={(e) => setBusinessInfo({ ...businessInfo, businessName: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="contactEmail">Contact Email</Label>
-                <Input
-                  id="contactEmail"
-                  type="email"
-                  value={businessInfo.contactEmail}
-                  onChange={(e) => setBusinessInfo({ ...businessInfo, contactEmail: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  value={businessInfo.phone}
-                  onChange={(e) => setBusinessInfo({ ...businessInfo, phone: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Business Logo</Label>
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="outline" size="sm">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Logo
-                  </Button>
-                  <span className="text-sm text-glass-muted-foreground">PNG, JPG up to 2MB</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="address">Business Address</Label>
-              <Input
-                id="address"
-                value={businessInfo.address}
-                onChange={(e) => setBusinessInfo({ ...businessInfo, address: e.target.value })}
-                required
-              />
-            </div>
-            
-            <Button type="submit">Update Business Info</Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* User Account Management */}
-      <Card className="glass-card">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                User Account Management
-              </CardTitle>
-              <CardDescription>
-                Manage admin user accounts and permissions
-              </CardDescription>
-            </div>
-            
-            <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Admin
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Admin User</DialogTitle>
-                  <DialogDescription>
-                    Create a new admin account
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleAddUser} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      value={newUserData.username}
-                      onChange={(e) => setNewUserData({ ...newUserData, username: e.target.value })}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={newUserData.password}
-                      onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
-                    <select
-                      id="role"
-                      value={newUserData.role}
-                      onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value as "admin" | "super_admin" })}
-                      className="w-full p-2 border border-glass-border rounded-md bg-glass-card"
-                    >
-                      <option value="admin">Admin</option>
-                      <option value="super_admin">Super Admin</option>
-                    </select>
-                  </div>
-                  
-                  <Button type="submit" className="w-full">Create Admin User</Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden md:table-cell">Last Login</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {adminUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.username}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.role === "super_admin" ? "default" : "secondary"}>
-                        {user.role === "super_admin" ? "Super Admin" : "Admin"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.isActive ? "default" : "outline"}>
-                        {user.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {user.lastLogin || "Never"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleUserStatus(user.id)}
-                          disabled={user.role === "super_admin"}
-                        >
-                          {user.isActive ? "Deactivate" : "Activate"}
-                        </Button>
-                        {user.role !== "super_admin" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
         </CardContent>
       </Card>
     </div>

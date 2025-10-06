@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, ClipboardList, Users, DollarSign, TrendingUp, AlertTriangle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
@@ -20,14 +21,125 @@ const stockData = [
 ];
 
 const AdminDashboard = () => {
+  // 1. Create state with initial zeros and empty arrays for fetched data
   const [stats, setStats] = useState({
-    totalSales: 25000,
-    pendingQuotes: 12,
-    lowStock: 2,
-    totalProducts: 45,
+    totalSales: 0,
+    pendingQuotes: 0,
+    lowStock: 0,
+    totalProducts: 0,
+    newPendingToday: 0, // ✅ Added for tracking today's pending
   });
 
-  const lowStockItems = stockData.filter(item => item.status === "low");
+  const [lowStockItems, setLowStockItems] = useState([]);
+  const [chartData, setChartData] = useState([]); // 🔹 For chart
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        // ✅ 1. Fetch quotations to calculate total sales (only completed)
+        const { data: completedQuotes, error: completedQuotesError } = await supabase
+          .from("quotations")
+          .select("estimated_price, created_at")
+          .eq("status", "completed");
+
+        if (completedQuotesError) throw completedQuotesError;
+
+        const totalSales = completedQuotes?.reduce(
+          (sum, item) => sum + (item.estimated_price || 0),
+          0
+        ) || 0;
+
+        // ✅ 2. Fetch total product count
+        const { data: productsData, error: productsError } = await supabase
+          .from("products")
+          .select("id");
+
+        if (productsError) throw productsError;
+
+        const totalProductsCount = productsData?.length || 0;
+
+        // ✅ 3. Fetch all pending quotations with created_at
+        const { data: pendingQuotesData, error: pendingQuotesError } = await supabase
+          .from("quotations")
+          .select("id, created_at")
+          .eq("status", "pending");
+
+        if (pendingQuotesError) throw pendingQuotesError;
+
+        const pendingQuotesCount = pendingQuotesData?.length || 0;
+
+        // ✅ 3.1 Count how many were created today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const newPendingTodayCount =
+          pendingQuotesData?.filter((q) => {
+            const createdAt = new Date(q.created_at);
+            return createdAt >= today;
+          }).length || 0;
+
+        // ✅ 4. Fetch all stock items
+        const { data: allStockItems, error: stockError } = await supabase
+          .from("stock_items")
+          .select("*");
+
+        if (stockError) throw stockError;
+
+        // ✅ 5. Filter low stock
+        const lowStockData = allStockItems.filter(
+          (item) => item.quantity < item.min_threshold
+        );
+
+        // ✅ 6. Group completed quotes by month for chart
+        const grouped = {};
+        completedQuotes.forEach((q) => {
+          const date = new Date(q.created_at);
+          const year = date.getFullYear();
+          const month = date.getMonth();
+          const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+          if (!grouped[key]) {
+            grouped[key] = { revenue: 0, orders: 0 };
+          }
+
+          grouped[key].revenue += q.estimated_price || 0;
+          grouped[key].orders += 1;
+        });
+
+        // ✅ 7. Convert grouped data to array for chart
+        const chartArray = Object.entries(grouped)
+          .map(([key, val]) => {
+            const [yr, mo] = key.split("-");
+            const monthName = new Date(yr, Number(mo) - 1).toLocaleString("default", {
+              month: "short",
+            });
+            return {
+              month: `${monthName} ${yr}`,
+              revenue: val.revenue,
+              orders: val.orders,
+            };
+          })
+          .sort((a, b) => new Date(a.month) - new Date(b.month));
+
+        // ✅ 8. Set state
+        setStats({
+          totalSales,
+          pendingQuotes: pendingQuotesCount,
+          lowStock: lowStockData.length,
+          totalProducts: totalProductsCount,
+          newPendingToday: newPendingTodayCount, // ✅ Set today's pending count
+        });
+
+        setLowStockItems(lowStockData);
+        setChartData(chartArray);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error.message || error);
+      }
+    }
+
+    fetchDashboardData();
+  }, []);
+
 
   return (
     <div className="space-y-6">
@@ -60,8 +172,10 @@ const AdminDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingQuotes}</div>
             <p className="text-xs text-glass-muted-foreground">
-              +3 new today
-            </p>
+            {stats.newPendingToday > 0
+              ? `+${stats.newPendingToday} new today`
+              : "No new pending today"}
+          </p>
           </CardContent>
         </Card>
 
@@ -101,7 +215,7 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={salesData}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--glass-border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--glass-muted-foreground))" />
                 <YAxis stroke="hsl(var(--glass-muted-foreground))" />
@@ -131,7 +245,7 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={salesData}>
+              <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--glass-border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--glass-muted-foreground))" />
                 <YAxis stroke="hsl(var(--glass-muted-foreground))" />

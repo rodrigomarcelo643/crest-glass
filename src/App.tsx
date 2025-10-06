@@ -14,11 +14,13 @@ import ContactUs from "./pages/ContactUs";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/admin/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
+import UsersPage from "./pages/admin/Users";
 import StockManagement from "./pages/admin/StockManagement";
 import PendingOrders from "./pages/admin/PendingOrders";
 import ProductManagement from "./pages/admin/ProductManagement";
 import ServiceManagement from "./pages/admin/ServiceManagement";
 import Settings from "./pages/admin/Settings";
+import { Users } from "lucide-react";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +56,7 @@ const App = () => (
           }>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="users" element={<UsersPage />} />
             <Route path="stock" element={<StockManagement />} />
             <Route path="orders" element={<PendingOrders />} />
             <Route path="products" element={<ProductManagement />} />

@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+
 import {
   Select,
   SelectContent,
@@ -87,6 +89,7 @@ const Products = () => {
     setSelectedCategory("all");
     setSortBy("newest");
   };
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-8">
@@ -262,7 +265,12 @@ const Products = () => {
               All our products can be customized to your exact specifications. 
               Contact us for personalized quotes and recommendations tailored to your project needs.
             </p>
-            <Button size="lg" variant="secondary" className="rounded-xl">
+            <Button 
+              size="lg" 
+              variant="secondary" 
+              className="rounded-xl"
+              onClick={() => navigate("/quote")}
+            >
               Request Custom Quote
             </Button>
           </div>
