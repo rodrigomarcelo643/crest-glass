@@ -18,6 +18,7 @@ import CrestLogo from "@/assets/crest-logo.png";
 
 const navigation = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { name: "Users", href: "/admin/users", icon: ClipboardList },
   { name: "Stock Management", href: "/admin/stock", icon: Archive },
   { name: "Pending Orders", href: "/admin/orders", icon: ClipboardList },
   { name: "Products", href: "/admin/products", icon: Package },
